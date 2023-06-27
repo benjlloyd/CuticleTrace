@@ -1,0 +1,500 @@
+---
+title: 'CuticleTrace Data Filtration'
+author: "Ben Lloyd"
+date: "2023-03-21"
+output:
+  html_document:
+    code_folding: hide
+    df_print: paged
+  pdf_document: default
+---
+
+## Aim
+
+The goal of this code is to efficiently filter ROIs generated after ImageJ Automated Particle Analysis by easily tweakable statistics. Currently, the code trims data files and ROI sets to either 1 or 2 median absolute deviations from the median of area, perimeter, aspect ratio, circularity, roundness, solidity, and Feret's diameter.
+
+To achieve this goal, the code works in 3 steps: 
+1. It reformats the results files produced by ImageJ to include individual ROI file names (and add undulation index if it's not already included) 
+2. It trims the reformatted results files to ± 1 or 2 MADs from the median of any column(s) in the results files. 
+3. It creates a new ROI set of just the ROIs remaining in the trimmed dataset, to be opened directly in imageJ.
+
+To start, we load in all of our functions.
+
+## Functions
+
+There are 3 types of functions used in this workflow, mirroring the steps outlined above:
+
+### 1.  Functions to reformat results files, in a batch or individually  
+
+  + *Reformat_Results_Unzip_ROIsets* batch-reformats all results files, unzipping their corresponding ROI sets in the process. It includes 2 nested functions - 1 to organize each image, results file, and ROI set path into a dataframe, and 1 to unzip each ROI set and add the ROI file names to each results file. We recommend using this function instead of *DF_Reformat* below. **To function properly this function requires 2 folders** - 1 folder with all of the results files (Results files **MUST** end with with "\_Results.csv"), and 1 folder with all of the ROI sets (ROI sets **MUST** have the same name as the results files, with "\_ROIset.zip" instead of "\_Results.csv" at the end). 
+
+```{r}
+    Reformat_Results_Unzip_ROIsets <- function(Results_Folder_Path, ROIsets_Folder_Path)
+      {
+  
+  ## First, Load Nested Functions:
+  
+  ## This function organizes each image, results file, and ROI set path into a dataframe
+  Organize_Paths <- function(Results_Folder_Path, ROIsets_Folder_Path)
+  {
+    
+    ### 1. List the images to be processed into a character vector:
+    
+    ROIsets <- list.files(path = ROIsets_Folder_Path, pattern = NULL, all.files = FALSE,
+                         full.names = FALSE, recursive = FALSE,
+                         ignore.case = FALSE, include.dirs = FALSE, no.. = FALSE)
+    
+    ### 2. Turn vector into Data Frame, removing suffix, set column name to "Image_Names"
+    
+    Images_DF <- cbind.data.frame(gsub("_ROIset.zip", "", ROIsets))
+    
+    colnames(Images_DF) <- "Image_Names"
+    
+    ### 3. Form vectors of File Paths for Results files, Filtered Results files, Zipped ROI sets, and Unzipped ROI sets
+    
+    Results_Files <- paste0(Results_Folder_Path, Images_DF$Image_Names, "_Results.csv")
+    ROIsets_Zipped <- paste0(ROIsets_Folder_Path, Images_DF$Image_Names, "_ROIset.zip")
+    ROIsets_Unzipped <-  paste0(ROIsets_Folder_Path, Images_DF$Image_Names, "_ROIset")
+    
+    ### 4. Put those 4 Vectors into a Data Frame
+    
+    Cuticle_Files_DF <- cbind.data.frame(Results_Files, ROIsets_Zipped, ROIsets_Unzipped)
+    
+    return(Cuticle_Files_DF)
+  }
+  
+  ## This function unzips an individual ROI set, 
+  ## THEN adds columns to its corresponding results file with Individual ROI file paths (and undulation index if necessary). 
+  DF_Reformat <- function(Results_Path, ROIset_Zipped_Path, ROIset_Unzipped_Path)
+  {
+    
+    ### 1. Unzip ROI set folder
+    
+    unzip(ROIset_Zipped_Path, exdir = ROIset_Unzipped_Path)
+    
+    ### 2. Format Results file with Undulation Index and ROI Filenames
+    
+    ## Read in results file:
+    data <- read.csv(Results_Path)
+    
+    ## adds title "ROI" to column 1
+    names(data)[1] <- "ROI"
+    
+    ### IF There is no UI Column - Calculates Undulation Index, Appends column to "data".
+    n <- colnames(data)
+    if("UI" %in% n == FALSE){
+    data$UI <- data$Perim./((pi*2)*sqrt(data$Area/pi))
+}
+     
+    
+    ## Reads ROI File Names into a LIST
+    File_Names <- list.files(path = ROIset_Unzipped_Path, pattern = NULL, all.files = FALSE,
+                             full.names = FALSE, recursive = FALSE,
+                             ignore.case = FALSE, include.dirs = FALSE, no.. = FALSE)
+    
+    ## Turns that List into a 1-column dataframe
+    Roiset_DF <- cbind.data.frame(File_Names)
+    
+    ## Adds Column with File Paths
+    Roiset_DF$File_Paths <- paste0(ROIset_Unzipped_Path,"/", Roiset_DF$File_Names)
+    
+    ## Appends those 2 columns to the beginning of "data", creates new dataframe "Data_with_Filenames"
+    
+    Data_with_FileNames <- cbind(Roiset_DF, data)
+    
+    return(Data_with_FileNames)
+  }
+  
+  ## Stores the number of images to batch process
+  Dataset_Size <- length(list.files(path = Results_Folder_Path))
+  
+  ## Creates a new folder within the results folder to store the reformatted results files
+  Finished_Dir <- paste0(Results_Folder_Path,"Results_Reformatted/") 
+  dir.create(Finished_Dir)
+  
+  ## Runs Organize_Paths to catalogue each Results file and ROI set to process
+  Cuticle_Files_DF <- Organize_Paths(Results_Folder_Path, ROIsets_Folder_Path)
+  
+  ## This Loop runs DF_Reformat on every Results file and ROIset in the Dataframe produced by Organize Paths above.
+  for(i in 1:Dataset_Size){
+    write.csv(DF_Reformat(Cuticle_Files_DF[i,1], Cuticle_Files_DF[i,2], Cuticle_Files_DF[i,3]), 
+              file = paste0(gsub(".csv","", 
+                                 gsub(Results_Folder_Path, paste0(Results_Folder_Path,"Results_Reformatted/"),
+                                      Cuticle_Files_DF[i,1] )), "_WithFilenames.csv"))
+    
+  }
+}
+```
+    
+  + *DF_Reformat* reformats 1 results file, and unzips its corresponding ROI set. It may be useful for a single late addition to a dataset, but in general, *Reformat_Results_Unzip_ROIsets* is more useful.
+
+```{r}
+    DF_Reformat <- function(Results_Path, ROIset_Zipped_Path)
+      {
+  
+  ### 1. Unzip ROI set folder
+  ROIset_Unzipped_Path <- gsub(".zip", "", ROIset_Zipped_Path)
+  
+  unzip(ROIset_Zipped_Path, exdir = ROIset_Unzipped_Path)
+  
+  ### 2. Format Results file with Undulation Index and ROI Filenames
+  
+  ## Read in results file:
+  data <- read.csv(Results_Path)
+  
+  ## adds title "ROI" to column 1
+  names(data)[1] <- "ROI"
+  
+   ### IF There is no UI Column - Calculates Undulation Index, Appends column to "data".
+    n <- colnames(data)
+    if("UI" %in% n == FALSE){
+    data$UI <- data$Perim./((pi*2)*sqrt(data$Area/pi))
+}
+  
+  ## Reads ROI File Names into a LIST
+  File_Names <- list.files(path = ROIset_Unzipped_Path, pattern = NULL, all.files = FALSE,
+                           full.names = FALSE, recursive = FALSE,
+                           ignore.case = FALSE, include.dirs = FALSE, no.. = FALSE)
+  
+  ## Turns that List into a 1-column dataframe
+  Roiset_DF <- cbind.data.frame(File_Names)
+  
+  ## Adds Column with File Paths
+  Roiset_DF$File_Paths <- paste0(ROIset_Unzipped_Path,"/", Roiset_DF$File_Names)
+  
+  ## Appends those 2 columns to the beginning of "data", creates new dataframe "Data_with_Filenames"
+  
+  Data_with_FileNames <- cbind(Roiset_DF, data)
+  
+  return(Data_with_FileNames)
+}
+```
+
+
+### 2.  Functions to filter reformatted results files based on statistical parameters.
+
+These functions may be modified to use mean statistics or other methods instead.
+    
+  + *OneMAD_Trim_AllParameters* and *TwoMAD_Trim_AllParameters* trim a single results file to either 1 or 2 median absolute deviations from the median of area, perimeter, aspect ratio, circularity, roundness, solidity, and Feret's diameter.
+
+```{r}
+OneMAD_Trim_AllParameters <- function(data_to_trim)
+        {
+      
+      ## 1st, Load OneMAD_Trim:
+      OneMAD_Trim <- function(file_to_trim, full_dataset, column_of_interest)
+      {
+        #1. Takes the Median of the column_of_interest in the full_dataset
+        med_column <- median(as.numeric(unlist(full_dataset[,column_of_interest])))
+        
+        #2. Takes the MAD of the column_of_interest in the full_dataset
+        MAD_column <- mad(as.numeric(unlist(full_dataset[,column_of_interest])))
+        
+        #3. Trims the file_to_trim based on the median ± 2MAD boundaries calculated with the full dataset
+        Trimmed_Data <- subset(file_to_trim, (med_column + MAD_column > as.numeric(unlist(file_to_trim[,column_of_interest])))
+                               &(med_column - MAD_column < as.numeric(unlist(file_to_trim[,column_of_interest]))))
+        
+        #4. Returns a dataframe for you to do whatever you want with.
+        return(Trimmed_Data)
+      }
+      
+      ## 2nd, Trim based on each parameter:  
+      ## I'll start with Area.
+      Trimmed_by_Area <- OneMAD_Trim(data_to_trim, data_to_trim, "Area")
+      
+      ## Then Perimeter.
+      Trimmed_by_Area_and_Perimeter <- OneMAD_Trim(Trimmed_by_Area, data_to_trim, "Perim.")
+      
+      ## Then Aspect Ratio.
+      Trimmed_by_Area_Perim_AR <- OneMAD_Trim(Trimmed_by_Area_and_Perimeter, data_to_trim, "AR")
+      
+      ## Circularity!
+      
+      Trimmed_Area_Perim_AR_Circ <- OneMAD_Trim(Trimmed_by_Area_Perim_AR, data_to_trim, "Circ.")
+      
+      ## Roundness!
+      
+      Trimmed_Area_Perim_AR_Circ_Round <- OneMAD_Trim(Trimmed_Area_Perim_AR_Circ, data_to_trim, "Round")
+      
+      ## Solidity!
+      
+      Trimmed_Area_Perim_AR_Circ_Round_Solid <- OneMAD_Trim(Trimmed_Area_Perim_AR_Circ_Round, data_to_trim, "Solidity")
+      
+      ## Feret! 
+      
+      Trimmed_Area_Perim_AR_Circ_Round_Solid_Feret <- OneMAD_Trim(Trimmed_Area_Perim_AR_Circ_Round_Solid, data_to_trim, "Feret")
+      
+      ## Return a trimmed dataframe
+      
+      return(Trimmed_Area_Perim_AR_Circ_Round_Solid_Feret)
+    }
+```
+```{r}
+ TwoMAD_Trim_AllParameters <- function(data_to_trim)
+      {
+          
+          ## 1st, Load TwoMAD_Trim:
+          TwoMAD_Trim <- function(file_to_trim, full_dataset, column_of_interest)
+          {
+            #1. Takes the Median of the column_of_interest in the full_dataset
+            med_column <- median(as.numeric(unlist(full_dataset[,column_of_interest])))
+            
+            #2. Takes the MAD of the column_of_interest in the full_dataset
+            MAD_column <- mad(as.numeric(unlist(full_dataset[,column_of_interest])))
+            
+            #3. Trims the file_to_trim based on the median ± 2MAD boundaries calculated with the full dataset
+            Trimmed_Data <- subset(file_to_trim, (med_column + 2*MAD_column > as.numeric(unlist(file_to_trim[,column_of_interest])))
+                                   &(med_column - 2*MAD_column < as.numeric(unlist(file_to_trim[,column_of_interest]))))
+            
+            #4. Returns a dataframe for you to do whatever you want with.
+            return(Trimmed_Data)
+          }
+          
+          ## 2nd, Trim based on each parameter:  
+          ## I'll start with Area.
+          Trimmed_by_Area <- TwoMAD_Trim(data_to_trim, data_to_trim, "Area")
+          
+          ## Then Perimeter.
+          Trimmed_by_Area_and_Perimeter <- TwoMAD_Trim(Trimmed_by_Area, data_to_trim, "Perim.")
+          
+          ## Then Aspect Ratio.
+          Trimmed_by_Area_Perim_AR <- TwoMAD_Trim(Trimmed_by_Area_and_Perimeter, data_to_trim, "AR")
+          
+          ## Circularity!
+          
+          Trimmed_Area_Perim_AR_Circ <- TwoMAD_Trim(Trimmed_by_Area_Perim_AR, data_to_trim, "Circ.")
+          
+          ## Roundness!
+          
+          Trimmed_Area_Perim_AR_Circ_Round <- TwoMAD_Trim(Trimmed_Area_Perim_AR_Circ, data_to_trim, "Round")
+          
+          ## Solidity!
+          
+          Trimmed_Area_Perim_AR_Circ_Round_Solid <- TwoMAD_Trim(Trimmed_Area_Perim_AR_Circ_Round, data_to_trim, "Solidity")
+          
+          ## Feret! 
+          
+          Trimmed_Area_Perim_AR_Circ_Round_Solid_Feret <- TwoMAD_Trim(Trimmed_Area_Perim_AR_Circ_Round_Solid, data_to_trim, "Feret")
+          
+          ## Return a trimmed dataframe
+          
+          return(Trimmed_Area_Perim_AR_Circ_Round_Solid_Feret)
+        }
+```
+
+  + *OneMAD_Trim* and *TwoMAD_Trim* trim a single results file based on the values of a **single column** to either 1 or 2 median absolute deviations from the median. The "full_dataset" input determines the median and MAD. It should come from the full, untrimmed dataset for statistical accuracy. The "file_to_trim" input is the file you want to trim, which you may have already trimmed based on another column. The "column_of_interest" input is the column that you want to use to trim the data. In an untrimmed dataset, the "full_dataset" and "file_to_trim" are identical.
+
+```{r}
+ OneMAD_Trim <- function(file_to_trim, full_dataset, column_of_interest)
+        {
+      #1. Takes the Median of the column_of_interest in the full_dataset
+      med_column <- median(as.numeric(unlist(full_dataset[,column_of_interest])))
+      
+      #2. Takes the MAD of the column_of_interest in the full_dataset
+      MAD_column <- mad(as.numeric(unlist(full_dataset[,column_of_interest])))
+      
+      #3. Trims the file_to_trim based on the median ± 2MAD boundaries calculated with the full dataset
+      Trimmed_Data <- subset(file_to_trim, (med_column + MAD_column > as.numeric(unlist(file_to_trim[,column_of_interest])))
+                             &(med_column - MAD_column < as.numeric(unlist(file_to_trim[,column_of_interest]))))
+      
+      #4. Returns a dataframe for you to do whatever you want with.
+      return(Trimmed_Data)
+    }
+```
+```{r}
+ TwoMAD_Trim <- function(file_to_trim, full_dataset, column_of_interest)
+      {
+  #1. Takes the Median of the column_of_interest in the full_dataset
+  med_column <- median(as.numeric(unlist(full_dataset[,column_of_interest])))
+  
+  #2. Takes the MAD of the column_of_interest in the full_dataset
+  MAD_column <- mad(as.numeric(unlist(full_dataset[,column_of_interest])))
+  
+  #3. Trims the file_to_trim based on the median ± 2MAD boundaries calculated with the full dataset
+  Trimmed_Data <- subset(file_to_trim, (med_column + 2*MAD_column > as.numeric(unlist(file_to_trim[,column_of_interest])))
+                         &(med_column - 2*MAD_column < as.numeric(unlist(file_to_trim[,column_of_interest]))))
+  
+  #4. Returns a dataframe for you to do whatever you want with.
+  return(Trimmed_Data)
+}
+```
+
+### 3.  A function to create new, trimmed ROI sets.
+  + *Trim_ROIset* creates a new zipped (and unzipped) ROI set of just the ROIs specified in a single trimmed results file. The new trimmed ROI set can be opened directly over images in ImageJ to visually check filtering proficiency.
+
+```{r}
+Trim_ROIset <- function(Trimmed_Data, ROIsets_path, ROIset_Unzipped, suffix)
+{
+  
+  ### 1. List the file names of the ROIs to keep
+  ROIs_to_Keep <- Trimmed_Data$File_Names
+  
+  ### 2. List the file paths of the ROIs to keep
+  ROIPaths <- paste0(ROIsets_path, ROIset_Unzipped, "/", ROIs_to_Keep)
+  
+  ### 3. Create a new folder for them
+  dir.create(paste0(ROIsets_path,"ROIsets", suffix, "/", ROIset_Unzipped, suffix))
+  
+  ### 4. Copy all of the ROIs to keep over to that folder
+  file.copy(ROIPaths, paste0(ROIsets_path,"ROIsets", suffix, "/", ROIset_Unzipped, suffix))
+  
+
+  
+  ### 5. Zip Folder of relevant ROIs, so it can be opened in ImageJ
+  zip(paste0(ROIsets_path,"ROIsets", suffix, "/", ROIset_Unzipped, suffix, ".zip"), files = ROIPaths)
+  
+  return("Complete! Check Working Directory for Zipped Filtered ROI Set.")
+}
+```
+
+
+
+## Workflow
+
+This Workflow is designed to work with the example dataset posted on the CuticleTrace Github repository (<https://github.com/benjlloyd/CuticleTrace/tree/main/Example_Dataset>). Your own data should easily substitute in, as long as it is organized in the same way!
+
+1.  Make sure this .Rmd file is within the directory that contains your Results folder and your ROI sets folder. .Rmd files automatically set the working directory to the directory that contains the document. **If using the example dataset, place this .Rmd file within the "Example_Dataset" folder.**
+
+2.  Paste the directory path that contains your results files.
+
+```{r}
+results_path <- "Results_Files/"
+```
+
+3.  Paste the directory path that contains your ROI sets.
+
+```{r}
+ROIsets_path <- "ROI_Sets/"
+```
+
+4.  Run this code chunk to reformat **all** results files, and unzip **all** ROI sets using *Reformat_Results_Unzip_ROIsets*.
+
+```{r eval=T, include=T}
+Reformat_Results_Unzip_ROIsets(results_path, ROIsets_path)
+```
+
+5.  Run these code chunks to trim **all** of the reformatted results files to ±1 and/or ±2 MADs from the median of area, perimeter, aspect ratio, circularity, roundness, solidity, and Feret's diameter.
+
+    + The first chunk lists the reformatted results files to be trimmed in the "reformatted_results" vector. Only run this once, before running the second and/or third chunks.
+
+    + The second chunk trims all results files listed in the "reformatted_results" vector to ±1 MAD from the median of all listed parameters, using the *OneMAD_Trim_AllParameters* function.
+
+    + The third chunk trims all results files listed in the "reformatted_results" vector to ±2 MADs from the median of all listed parameters, using the *TwoMAD_Trim_AllParameters* function.
+
+```{r eval=T, include=TRUE}
+  reformatted_results_path <- paste0(results_path,"Results_Reformatted/")
+  reformatted_results <- list.files(reformatted_results_path)
+  numb_results <- length(reformatted_results)
+```
+
+```{r eval=T, include=TRUE}
+  # Creates directory for 1 MAD-trimmed Results files.
+  dir.create(paste0(reformatted_results_path,"1MAD_Trimmed_Results/"))
+  OneMAD_OutputDir <- paste0(reformatted_results_path,"1MAD_Trimmed_Results/")
+  
+  # Trims all results files, pastes trimmed files into new directory.
+  for (i in 1:numb_results) {
+    
+    dataset1 <- read.csv(paste0(reformatted_results_path, reformatted_results[i]))
+    
+    Trimmed_Data <- OneMAD_Trim_AllParameters(dataset1)
+    
+    Trimmed_Filename <- gsub(".csv", "_trimmed_1MAD.csv", reformatted_results[i])
+    
+    write.csv(Trimmed_Data, paste0(OneMAD_OutputDir, Trimmed_Filename))
+    
+  } 
+```
+
+```{r eval=T, include=TRUE}
+# Creates directory for 2 MAD-trimmed Results files.
+  dir.create(paste0(reformatted_results_path,"2MAD_Trimmed_Results/"))
+  TwoMAD_OutputDir <- paste0(reformatted_results_path,"2MAD_Trimmed_Results/")
+  
+  # Trims all results files, pastes trimmed files into new directory.
+for (i in 1:numb_results) {
+    
+    dataset1 <- read.csv(paste0(reformatted_results_path, reformatted_results[i]))
+    
+    Trimmed_Data <- TwoMAD_Trim_AllParameters(dataset1)
+    
+    Trimmed_Results_Name <- gsub(".csv", "_trimmed_2MAD.csv", reformatted_results[i])
+    
+    write.csv(Trimmed_Data, paste0(TwoMAD_OutputDir, Trimmed_Results_Name))
+  
+  }
+```
+
+6.  Run these code chunks to create copies of **all** ROI sets that are trimmed to only include the ROIs specified in the filtered results files from step 5. This step uses the *Trim_ROIset* function.
+
+    + The first code chunk creates a folder of zipped and unzipped ROI sets that have been trimmed to 1 MAD from the median based on the parameters above.
+    
+    + The second code chunk creates a folder of zipped and unzipped ROI sets that have been trimmed to 2 MADs from the median based on the parameters above.
+
+```{r eval=T, include=TRUE}
+
+## List trimmed results files
+
+trimmed_results_filenames <- list.files(OneMAD_OutputDir)
+
+## List unzipped ROI set names
+
+ROIsets_dirnames <- gsub("Results_WithFilenames_trimmed_1MAD.csv","ROIset", trimmed_results_filenames)
+
+## File + Directory suffix: 
+
+suffix <- "_FILTERED_1MAD"
+
+## Create a directory for 1MAD ROIsets
+dir.create(paste0(ROIsets_path,"ROIsets", suffix))
+
+## For each file:
+for (i in 1:length(trimmed_results_filenames)) {
+
+## Open the results file
+
+datafile <- read.csv(paste0(OneMAD_OutputDir, trimmed_results_filenames[i]))
+
+## Run Trim_ROIset
+
+Trim_ROIset(datafile,ROIsets_path, ROIsets_dirnames[i],suffix)
+
+}
+```
+
+```{r eval=T, include=TRUE}
+
+## List trimmed results files
+
+trimmed_results_filenames <- list.files(TwoMAD_OutputDir)
+
+## List unzipped ROI set names
+
+ROIsets_dirnames <- gsub("Results_WithFilenames_trimmed_2MAD.csv","ROIset", trimmed_results_filenames)
+
+## File + Directory suffix: 
+
+suffix <- "_FILTERED_2MAD"
+
+## Create a directory for 2MAD ROIsets
+dir.create(paste0(ROIsets_path,"ROIsets", suffix))
+
+## For each file:
+for (i in 1:length(trimmed_results_filenames)) {
+
+## Open the results file
+
+datafile <- read.csv(paste0(TwoMAD_OutputDir, trimmed_results_filenames[i]))
+
+## Run Trim_ROIset
+
+Trim_ROIset(datafile,ROIsets_path, ROIsets_dirnames[i],suffix)
+
+}
+```
+
+
+
+
+
+
