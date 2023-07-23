@@ -1,13 +1,15 @@
 # Introduction to CuticleTrace
 CuticleTrace is a suite of FIJI and R functions that allow users to the automatically trace and measure leaf epidermal pavement cells in microscope images.
 
+**For a detailed description of all components of the CuticleTrace toolkit, see the CuticleTrace Paper (preprint link coming soon) and the User Manual (CuticleTrace_UserManual.pdf)**
+
 The FIJI macros (in CuticleTrace_AllMacros.ijm) produce three main products from each cuticle image: 
   (1) thresholded and skeletonized binary images, 
   (2) sets of files recording individual cell shapes known as “regions of interest” (ROIs), and 
   (3) shape parameter measurements associated with each ROI. 
 The R notebook (CuticleTrace_DataFiltration.Rmd) removes erroneous ROIs from the ROI sets and results files generated in FIJI through the statistical filtration of their shape parameter measurements. This step produces new, filtered, ROI sets that may be reopened in FIJI for visual inspection of the results. Both the FIJI macros and the R notebook functions may be used to individually- or batch-process images. 
 
-**For a detailed description of all components of the CuticleTrace toolkit, see the CuticleTrace Paper (preprint link) and the User Manual (CuticleTrace_UserManual.pdf)**
+
 
 # Github Contents
 This repository contains the FIJI Macros, R Notebook, Example Dataset, and User Manual for the CuticleTrace Toolkit.
