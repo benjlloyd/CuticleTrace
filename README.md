@@ -9,11 +9,7 @@ The R notebook (CuticleTrace_DataFiltration.Rmd) removes erroneous ROIs from the
 
 # Github Contents
 This repository contains the FIJI Macros, R Notebook, Example Dataset, and User Manual for the CuticleTrace Toolkit.
-  1. CuticleTrace_AllMacros.ijm contains four FIJI Macros:
-     a. CuticleTrace - Batch Generate ROIs
-     b. CuticleTrace - Single Image Processor
-     c. CuticleTrace - Batch Measure (Different Scales)
-     d. CuticleTrace - Batch Overlay
+  1. CuticleTrace_AllMacros.ijm contains four FIJI Macros: (1) CuticleTrace - Batch Generate ROIs, (2) CuticleTrace - Single Image Processor, (3) CuticleTrace - Batch Measure (Different Scales), and (4) CuticleTrace - Batch Overlay.
   2. CuticleTrace_DataFiltration.Rmd — the R Notebook used for data filtration within the CuticleTrace pipeline.
   3. CuticleTrace_Example.zip — the example dataset for the tutorial in CuticleTrace_UserManual.pdf
   4. CuticleTrace_UserManual.pdf - an illustrated user manual containing descriptions of all CuticleTrace functions,an illustrated tutorial for        the analysis of the example dataset (CuticleTrace_Example.zip), and detailed instructions on applying CuticleTrace to new datasets.
