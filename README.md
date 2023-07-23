@@ -7,6 +7,8 @@ The FIJI macros (in CuticleTrace_AllMacros.ijm) produce three main products from
   (3) shape parameter measurements associated with each ROI. 
 The R notebook (CuticleTrace_DataFiltration.Rmd) removes erroneous ROIs from the ROI sets and results files generated in FIJI through the statistical filtration of their shape parameter measurements. This step produces new, filtered, ROI sets that may be reopened in FIJI for visual inspection of the results. Both the FIJI macros and the R notebook functions may be used to individually- or batch-process images. 
 
+*For a detailed description of all components of the CuticleTrace toolkit, see CuticleTrace_UserManual.pdf*
+
 # Github Contents
 This repository contains the FIJI Macros, R Notebook, Example Dataset, and User Manual for the CuticleTrace Toolkit.
   1. CuticleTrace_AllMacros.ijm contains four FIJI Macros: (1) CuticleTrace - Batch Generate ROIs, (2) CuticleTrace - Single Image Processor, (3) CuticleTrace - Batch Measure (Different Scales), and (4) CuticleTrace - Batch Overlay.
