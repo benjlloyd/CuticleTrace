@@ -1,7 +1,7 @@
 # Introduction to CuticleTrace
 CuticleTrace is a suite of FIJI and R functions that allow users to the automatically trace and measure leaf epidermal pavement cells in microscope images.
 
-**For a detailed description of all components of the CuticleTrace toolkit, see the CuticleTrace Paper (https://doi.org/10.1101/2023.07.23.550217) and the User Manual (CuticleTrace_UserManual.pdf)**
+**For a detailed description of all components of the CuticleTrace toolkit, see the CuticleTrace Paper (preprint: https://doi.org/10.1101/2023.07.23.550217) and the User Manual (CuticleTrace_UserManual.pdf)**
 
 The FIJI macros (in CuticleTrace_AllMacros.ijm) produce three main products from each cuticle image: 
   (1) thresholded and skeletonized binary images, 
