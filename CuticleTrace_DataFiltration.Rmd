@@ -321,6 +321,8 @@ OneMAD_Trim_AllParameters <- function(data_to_trim)
 
 ### 3.  A function to create new, trimmed ROI sets.
   + *Trim_ROIset* creates a new zipped (and unzipped) ROI set of just the ROIs specified in a single trimmed results file. The new trimmed ROI set can be opened directly over images in ImageJ to visually check filtering proficiency.
+  
+  + **NOTE: This version of the code will NOT generate ZIPPED ROI sets on windows machines. To view filtered ROI sets in ImageJ, Manually zip them.**
 
 ```{r}
 Trim_ROIset <- function(Trimmed_Data, ROIsets_path, ROIset_Unzipped, suffix)
@@ -340,7 +342,8 @@ Trim_ROIset <- function(Trimmed_Data, ROIsets_path, ROIset_Unzipped, suffix)
   
 
   
-  ### 5. Zip Folder of relevant ROIs, so it can be opened in ImageJ
+  ### 5. Zip Folder of relevant ROIs, so it can be opened in ImageJ 
+  ### *DOES NOT WORK ON WINDOWS* ###
   zip(paste0(ROIsets_path,"ROIsets", suffix, "/", ROIset_Unzipped, suffix, ".zip"), files = ROIPaths)
   
   return("Complete! Check Working Directory for Zipped Filtered ROI Set.")
@@ -430,6 +433,8 @@ for (i in 1:numb_results) {
     + The first code chunk creates a folder of zipped and unzipped ROI sets that have been trimmed to 1 MAD from the median based on the parameters above.
     
     + The second code chunk creates a folder of zipped and unzipped ROI sets that have been trimmed to 2 MADs from the median based on the parameters above.
+    
+    + **NOTE: This version of the code will ONLY generate UNZIPPED ROI sets on windows machines. To view filtered ROI sets in ImageJ, Manually zip them.**
 
 ```{r eval=T, include=TRUE}
 
