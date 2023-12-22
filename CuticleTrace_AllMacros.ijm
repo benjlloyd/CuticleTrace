@@ -905,7 +905,8 @@ macro "CuticleTrace - Batch Overlay" {
 
 // 1. Generates dialogue to input the directories of the ROI sets and Images.
 Dialog.create("CuticleTrace - Batch Overlay");
-Dialog.addMessage("Both input directories must have the same # of files, in the same order alphabetically.");
+Dialog.addMessage("Each ROI set must have the same name as its corresponding image, with '_ROIset.zip' instead of the image file extension. \n For example, 'Image_01.jpg' MUST correspond to 'Image_01_ROIset.zip'");
+
 Dialog.addDirectory("Image Directory", "/path/")
 Dialog.addDirectory("ROI set Directory", "/path/")
 Dialog.addString("Name for Output Folder", "Images_with_Overlays", 25);
@@ -945,34 +946,46 @@ File.makeDirectory(OutputDir);
 
 // 2. For each image-ROI set combo, open them both, format the ROIset as an overlay on the image, and save the image.
 for (i = 0; i < lengthOf(images_filelist); i++) {
+    imagename = File.getNameWithoutExtension(images_filelist[i]);
+
+    // Check if the ROI set file exists before attempting to open
+    ROIsetFilename = imagename + "_ROIset.zip";
+    ROIsetPath = ROIsetsdir + ROIsetFilename;
+
+    if (File.exists(ROIsetPath) == 1) {
     open(imagesdir + images_filelist[i]);
-    open(ROIsetsdir + ROIsets_filelist[i]);
-    if (roiManager("count") > 0) {
+    open(ROIsetPath);
+    
+    	if (roiManager("count") > 0) {
+		roiManager("Deselect");
+		
+			if (fillcolor != "none" || fillcolor != "None") {
+			roiManager("Set Fill Color", fillcolor);
+    		run("From ROI Manager");
+			}
+	
+    		roiManager("Set Line Width", thickness);
+			roiManager("Set Color", color);
+			run("From ROI Manager");
+	
+				if (label == true) {
+				run("Labels...", "color=white font=14 show draw");
+				}
 
-	roiManager("Deselect");
-	if (fillcolor != "none" || fillcolor != "None") {
-	roiManager("Set Fill Color", fillcolor);
-    run("From ROI Manager");
-	}
 	
-    roiManager("Set Line Width", thickness);
-	roiManager("Set Color", color);
-	run("From ROI Manager");
+		save(OutputDir + imagename + "_Overlay" + format);
 	
-	if (label == true) {
-		run("Labels...", "color=white font=14 show draw");
-	}
-
+		roiManager("deselect");
+		roiManager("delete");
 	
-	save(OutputDir + File.getNameWithoutExtension(ROIsets_filelist[i]) + "_Overlay" + format);
-	
-	roiManager("deselect");
-	roiManager("delete");
-	
-    }
+    	}
 	close("*");
+	}
+	else {
+        // Handle the case when there is no corresponding ROI set
+        print("No ROI set found for: " + images_filelist[i]);
+    }
 }
-
 
 }
 
