@@ -901,11 +901,17 @@ close("*");
 } 
 
 macro "CuticleTrace - Batch Overlay" {
-
-
 // 1. Generates dialogue to input the directories of the ROI sets and Images.
 Dialog.create("CuticleTrace - Batch Overlay");
-Dialog.addMessage("Each ROI set must have the same name as its corresponding image, with '_ROIset.zip' instead of the image file extension. \n For example, 'Image_01.jpg' MUST correspond to 'Image_01_ROIset.zip'");
+Dialog.addMessage("IMPORTANT NOTE: Each ROIset's file name must start with the same name as its corresponding image.");
+	Dialog.addMessage("For example, the ROIset for 'Image_01.jpg' must be named 'Image_01[...].zip'. ");
+	Dialog.addMessage("CuticleTrace's default ROIset names all abide by this convention. They are:");
+		Dialog.addMessage("		1. '[Image Filename]_ROIset.zip'");
+		Dialog.addMessage("		2. '[Image Filename]_ROIset_FILTERED_1MAD.zip'");
+		Dialog.addMessage("		3. '[Image Filename]_ROIset_FILTERED_2MAD.zip'");
+	Dialog.addMessage("  ");
+
+
 
 Dialog.addDirectory("Image Directory", "/path/")
 Dialog.addDirectory("ROI set Directory", "/path/")
@@ -920,13 +926,11 @@ Dialog.addString("Fill Color (hex, 'None' for no fill)", "#2CFFFF00", 10);
 Dialog.addCheckbox("Label ROIs?", true);
 Dialog.addNumber("Label Font Size (if applicable)", 12);
 
-
 Dialog.show();
 
 imagesdir = Dialog.getString();
 ROIsetsdir = Dialog.getString();
 outputname = Dialog.getString();
-
 
 format = Dialog.getString();
 thickness = Dialog.getNumber();
@@ -935,55 +939,56 @@ fillcolor = Dialog.getString();
 label = Dialog.getCheckbox();
 labsize = Dialog.getNumber();
 
-
 images_filelist = getFileList(imagesdir);
 ROIsets_filelist = getFileList(ROIsetsdir);
 
 OutputDir = File.getParent(imagesdir) + "/" + outputname + "/";
 File.makeDirectory(OutputDir);
 
-
-
 // 2. For each image-ROI set combo, open them both, format the ROIset as an overlay on the image, and save the image.
 for (i = 0; i < lengthOf(images_filelist); i++) {
     imagename = File.getNameWithoutExtension(images_filelist[i]);
 
-    // Check if the ROI set file exists before attempting to open
-    ROIsetFilename = imagename + "_ROIset.zip";
-    ROIsetPath = ROIsetsdir + ROIsetFilename;
+    // Find the appropriate ROI set file by checking which file starts with the specified prefix
+    var matchingROISetFile = "";
+    for (j = 0; j < lengthOf(ROIsets_filelist); j++) {
+        if (startsWith(ROIsets_filelist[j], imagename)) {
+            matchingROISetFile = ROIsets_filelist[j];
+            break;
+        }
+    }
 
-    if (File.exists(ROIsetPath) == 1) {
-    open(imagesdir + images_filelist[i]);
-    open(ROIsetPath);
-    
-    	if (roiManager("count") > 0) {
-		roiManager("Deselect");
-		
-			if (fillcolor != "none" || fillcolor != "None") {
-			roiManager("Set Fill Color", fillcolor);
-    		run("From ROI Manager");
-			}
-	
-    		roiManager("Set Line Width", thickness);
-			roiManager("Set Color", color);
-			run("From ROI Manager");
-	
-				if (label == true) {
-				run("Labels...", "color=white font=14 show draw");
-				}
+    // Check if a matching ROI set file was found
+    if (lengthOf(matchingROISetFile) > 0) {
+        open(imagesdir + images_filelist[i]);
+        open(ROIsetsdir + matchingROISetFile);
 
-	
-		save(OutputDir + imagename + "_Overlay" + format);
-	
-		roiManager("deselect");
-		roiManager("delete");
-	
-    	}
-	close("*");
-	}
-	else {
+        if (roiManager("count") > 0) {
+            roiManager("Deselect");
+
+            if (fillcolor != "none" || fillcolor != "None") {
+                roiManager("Set Fill Color", fillcolor);
+                run("From ROI Manager");
+            }
+
+            roiManager("Set Line Width", thickness);
+            roiManager("Set Color", color);
+            run("From ROI Manager");
+
+            if (label == true) {
+                run("Labels...", "color=white font=14 show draw");
+            }
+
+            save(OutputDir + imagename + "_Overlay" + format);
+
+            roiManager("deselect");
+            roiManager("delete");
+        }
+
+        close("*");
+    } else {
         // Handle the case when there is no corresponding ROI set
-        print("No ROI set found for: " + images_filelist[i]);
+        print("No ROI set found for: " + imagename);
     }
 }
 
